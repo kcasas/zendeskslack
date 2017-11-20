@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const port = 1234;
+const port = 80;
 
 app.get('/ping', (req, res) => {
   res.send('pong');
