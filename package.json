@@ -1,0 +1,27 @@
+{
+  "name": "zendeskslack",
+  "version": "1.0.0",
+  "description": "Zendesk Slack Integrationl - Proof of Concept",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kcasas/zendeskslack.git"
+  },
+  "keywords": [
+    "zendesk",
+    "slack"
+  ],
+  "author": "karl.casas777@gmail.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kcasas/zendeskslack/issues"
+  },
+  "homepage": "https://github.com/kcasas/zendeskslack#readme",
+  "dependencies": {
+    "botkit": "^0.6.7",
+    "express": "^4.16.2"
+  }
+}
