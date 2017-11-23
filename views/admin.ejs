@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Slack Development Admin</title>
+  </head>
+  <body>
+    <form class="" action="<%= return_url %>" method="post">
+      <label for="">Name</label>
+      <input type="text" name="name" value="<%= name %>">
+      <input type="hidden" name="subdomain" value="<%= subdomain %>">
+      <label for="">metadata</label>
+      <input type="text" name="metadata" value="<%= metadata %>">
+      <input type="submit" value="Submit">
+    </form>
+  </body>
+</html>

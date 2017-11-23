@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const port = 4444;
 
+app.set('view engine', 'ejs');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -35,11 +36,13 @@ app.post('/zendesk', (req, res) => {
         fields: [
           {
             title: "Priority",
-            value: req.body.priority
+            value: req.body.priority,
+            short: true
           },
           {
             title: "Assignee",
-            value: req.body.assignee
+            value: req.body.assignee,
+            short: true
           }
         ],
         actions: [
@@ -54,9 +57,39 @@ app.post('/zendesk', (req, res) => {
     ]
   });
 
-
-  console.log(req.body);
   res.send('pong');
+});
+
+app.post('/slack/events', (req, res) => {
+  console.log(`/slack/events \n ${JSON.stringify(req.body)}`);
+  res.send(req.body.challenge);
+});
+
+app.all('/zendesk/admin', (req, res) => {
+  console.log(`/zendesk/admin \n ${JSON.stringify(req.body)}`);
+  res.render('admin', req.body);
+});
+
+app.all('/zendesk/manifest', (req, res) => {
+  const manifest = {
+    name: 'Zendesk Slack Integration',
+    id: 'zendesk-slack-integration-v0.1-alpha',
+    author: 'Karl Casas',
+    version: 'v0.1-alpha',
+    urls: {
+      admin_ui: `${process.env.url}/zendesk/admin`,
+      channelback_url: `${process.env.url}/zendesk/channelback`,
+    },
+    push_client_id: 'slackkarl'
+  };
+
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(manifest));
+});
+
+app.all('/zendesk/channelback', (req, res) => {
+  console.log(`/zendesk/channelback \n ${JSON.stringify(req.body)}`);
+  res.send(200);
 });
 
 app.listen(port, () => console.log(`Example zendesk slack integration on port ${port}`));
