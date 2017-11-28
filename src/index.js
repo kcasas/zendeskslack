@@ -2,6 +2,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
 const port = 4444;
+const zendesk = require('./api/zendesk');
+const slack = require('./api/slack');
 
 app.set('view engine', 'ejs');
 app.use(bodyParser.json());
@@ -12,83 +14,91 @@ app.get('/ping', (req, res) => {
 });
 
 app.post('/zendesk', (req, res) => {
-  const Botkit = require('botkit');
-
-  const slackController = Botkit.slackbot({
-    require_delivery: true
-  });
-
-  const bot = slackController.spawn({
-    token: process.env.token
-  });
-
-  bot.say({
-    username: 'zenbot',
-    icon_url: 'http://garden.zendesk.com/favicons/zendesk/apple-touch-icon.png',
-    channel: req.body.slack_channel,
-    text: `*[${req.body.status}]* <${req.body.url}|Ticket #${req.body.id}>`,
-    attachments: [
-      {
-        color: '#78a300',
-        title: req.body.title,
-        text: `${req.body.latest_comment} \n`,
-        author_name: `Requested by ${req.body.requester}`,
-        fields: [
-          {
-            title: "Priority",
-            value: req.body.priority,
-            short: true
-          },
-          {
-            title: "Assignee",
-            value: req.body.assignee,
-            short: true
-          }
-        ],
-        actions: [
-          {
-            name: 'edit_ticket',
-            text: 'Edit Ticket',
-            type: 'button',
-            value: 'edit_ticket'
-          }
-        ]
-      }
-    ]
-  });
+  console.log('/zendesk');
+  console.log(req.body);
+  console.log('\n');
+  const ticket_message = require('./elements/ticket_message');
+  slack.bot.say(ticket_message(req.body));
 
   res.send('pong');
 });
 
 app.post('/slack/events', (req, res) => {
-  console.log(`/slack/events \n ${JSON.stringify(req.body)}`);
+  console.log(`/slack/events`);
+  console.log(req.body);
+  console.log('\n');
   res.send(req.body.challenge);
 });
 
-app.all('/zendesk/admin', (req, res) => {
-  console.log(`/zendesk/admin \n ${JSON.stringify(req.body)}`);
-  res.render('admin', req.body);
+app.post('/slack/command/zendesk', (req, res) => {
+  console.log(`/slack/command/zendesk \n ${JSON.stringify(req.body)}`);
+  zendesk.groups.list((err, r, result) => {
+    const ticket_dialog = require('./elements/ticket_dialog');
+
+    slack.bot.api.dialog.open({
+      trigger_id: req.body.trigger_id,
+      dialog: JSON.stringify(ticket_dialog(result))
+    }, (err, response) => {
+      console.log(response);
+    });
+    res.setHeader('Content-Type', 'application/json');
+    res.send(200);
+  });
 });
 
-app.all('/zendesk/manifest', (req, res) => {
-  const manifest = {
-    name: 'Zendesk Slack Integration',
-    id: 'zendesk-slack-integration-v0.1-alpha',
-    author: 'Karl Casas',
-    version: 'v0.1-alpha',
-    urls: {
-      admin_ui: `${process.env.url}/zendesk/admin`,
-      channelback_url: `${process.env.url}/zendesk/channelback`,
-    },
-    push_client_id: 'slackkarl'
-  };
-
-  res.setHeader('Content-Type', 'application/json');
-  res.send(JSON.stringify(manifest));
+app.all('/slack/interactive/components', (req, res) => {
+  const payload = JSON.parse(req.body.payload);
+  console.log(`/slack/interactive/components`);
+  console.log(payload);
+  if (payload.type == 'dialog_submission') {
+    zendesk.tickets.create({
+      ticket: {
+        description: payload.submission.description,
+        subject: payload.submission.title,
+        group_id: payload.submission.assignee,
+        custom_fields: [{ id: 81069827, value: payload.channel.name }],
+        requester_id: 16673807228,
+        priority: payload.submission.priority,
+        type: payload.submission.type
+      }
+    }, (err) => {
+      console.log(err);
+      res.setHeader('Content-Type', 'application/json');
+      res.send({});
+    });
+  } else {
+    const new_message = payload.original_message;
+    payload.actions.forEach(action => {
+      new_message.attachments.forEach(attachment => {
+        attachment.actions.forEach(attachmentAction => {
+          if (action.name === attachmentAction.name) {
+            attachmentAction.selected_options = action.selected_options;
+            attachmentAction.selected_options.forEach(selectedOption => {
+              selectedOption.text = selectedOption.value;
+            });
+          }
+        })
+      });
+    });
+    const action = new_message.attachments[0].actions[1];
+    console.log(action);
+    console.log('\n');
+    if (action.selected_options[0].value == 'Solved') {
+      const dialog = require('./elements/requirement_dialog');
+      slack.bot.api.dialog.open({
+        trigger_id: payload.trigger_id,
+        dialog: JSON.stringify(dialog)
+      }, (err, response) => {
+        console.log(response);
+      });
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.send(new_message);
+  }
 });
 
-app.all('/zendesk/channelback', (req, res) => {
-  console.log(`/zendesk/channelback \n ${JSON.stringify(req.body)}`);
+app.post('/slack/interactive/menus', (req, res) => {
+  console.log(`/slack/interactive/menus \n ${JSON.stringify(req.body)}`);
   res.send(200);
 });
 
